@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._connect_view_model()
 
-    # --- UI construction -----------------------------------------------------
+    # --- UI Construction ---------------------------------------------------
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -103,7 +103,7 @@ class MainWindow(QMainWindow):
         layout.addStretch(1)
         return group
 
-    # --- ViewModel <-> View bindings ------------------------------------------
+    # --- ViewModel <-> View Bindings ---------------------------------------
 
     def _connect_view_model(self) -> None:
         self._vm.status_changed.connect(self._status_label.setText)
@@ -111,7 +111,7 @@ class MainWindow(QMainWindow):
         self._vm.live_view_updated.connect(self._on_live_view_updated)
         self._vm.offline_data_available.connect(self._on_offline_data_available)
 
-    # --- Slots reacting to user actions ---------------------------------------
+    # --- User Action Handlers ---------------------------------------------
 
     def _on_connect_clicked(self) -> None:
         host = self._host_edit.text().strip() or DEFAULT_HOST
@@ -129,7 +129,7 @@ class MainWindow(QMainWindow):
         if self._tabs.widget(index) is self._offline_widget:
             self._refresh_offline_if_visible()
 
-    # --- Slots reacting to the ViewModel ---------------------------------------
+    # --- ViewModel Signal Handlers ----------------------------------------
 
     def _on_connection_state_changed(self, connected: bool) -> None:
         self._connect_button.setEnabled(not connected)
@@ -155,7 +155,7 @@ class MainWindow(QMainWindow):
         time_axis, data = self._vm.get_offline_data()
         self._offline_widget.plot(time_axis, data, self._channel_spin.value(), self._mode_combo.currentText())
 
-    # --- Cleanup -----------------------------------------------------------
+    # --- Resource Cleanup -------------------------------------------------
 
     def closeEvent(self, event) -> None:
         """Cleanly close the socket if the window is closed while still connected."""

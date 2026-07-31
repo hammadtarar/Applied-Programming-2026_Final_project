@@ -1,15 +1,13 @@
-"""MainViewModel: the single source of truth for application state.
+"""Single source of truth for application state and the MVVM seam.
 
-Views bind to this ViewModel's signals and call its slots; it is the only
-place that talks to both the TCP model and the buffer/signal-processing
-models. Views never touch `TcpClientModel`, `RollingBuffer`, etc. directly,
-and the models never import any GUI code -- this ViewModel is the seam
-between them (the "VM" in MVVM).
+Mediates communication between the UI views and low-level data/signal processing
+models (`TcpClientModel`, `RollingBuffer`, etc.). Views bind to this ViewModel's
+signals and slots rather than interacting with backend models directly, ensuring
+models remain completely decoupled from Qt and GUI dependencies.
 
-Following Exercise 5's approach, there is no background thread: a QTimer
-calls `_poll_tcp` regularly, which asks the (non-blocking) `TcpClientModel`
-for any newly arrived data. See models/tcp_client.py for why this is safe
-without freezing the GUI.
+Operates single-threaded without background workers: a QTimer periodically invokes
+`_poll_tcp` to fetch reconstructed packets from the non-blocking `TcpClientModel`
+without blocking the UI thread (see `models/tcp_client.py` for design details).
 """
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
@@ -19,15 +17,14 @@ from models.signal_buffer import RecordingBuffer, RollingBuffer
 from models.signal_processing import SignalMode, apply_mode
 from models.tcp_client import TcpClientModel
 
-# How often the QTimer polls the socket, in milliseconds -- matches the
-# 10 ms interval used in the Exercise 5 solution.
+# QTimer polling interval in milliseconds (10 ms, matching Exercise 5).
 POLL_INTERVAL_MS = 10
 
 
 class MainViewModel(QObject):
-    """Owns the TCP client and both buffers; exposes state to the Views."""
+    """Manages the TCP client and buffers while exposing state to views."""
 
-    # --- Signals consumed by Views ---------------------------------------
+    # --- Signals consumed by Views ----------------------------------------
     status_changed = Signal(str)
     connection_state_changed = Signal(bool)        # True once connected
     live_view_updated = Signal(object, object)      # (time_axis, data) for the *current* display
@@ -47,11 +44,11 @@ class MainViewModel(QObject):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._poll_tcp)
 
-    # --- Slots called by the View in response to user actions -------------
+    # --- Slots called by Views --------------------------------------------
 
     @Slot(str, int)
     def connect_requested(self, host: str, port: int) -> None:
-        """Connect to the TCP server. Emits an error via status_changed on failure."""
+        """Connects to the TCP server, emitting status updates on failure."""
         if self.is_connected:
             self.status_changed.emit("Already connected.")
             return
@@ -60,7 +57,7 @@ class MainViewModel(QObject):
             self.status_changed.emit(f"Invalid port: {port}. Choose a value between 1 and 65535.")
             return
 
-        # A fresh connection starts a fresh recording.
+        # Reset state so each new connection starts with a fresh recording.
         self.rolling_buffer.clear()
         self.recording_buffer.clear()
         self.offline_data_available.emit(False)
@@ -70,7 +67,7 @@ class MainViewModel(QObject):
         try:
             model.connect()
         except OSError as error:
-            # e.g. server not running, wrong port, unreachable host.
+            # Handles common connection failures (e.g., server offline, invalid port, unreachable host).
             self.status_changed.emit(f"Could not connect: {error}")
             return
 
@@ -82,7 +79,7 @@ class MainViewModel(QObject):
 
     @Slot()
     def disconnect_requested(self) -> None:
-        """Stop polling and close the connection."""
+        """Stops socket polling and closes the active TCP connection."""
         if not self.is_connected or self._model is None:
             self.status_changed.emit("Not connected.")
             return
@@ -110,31 +107,37 @@ class MainViewModel(QObject):
         self.show_all_channels = show_all
         self._refresh_live_view()
 
-    # --- Data the offline (Matplotlib) view pulls on demand ----------------
+    # --- Offline View Data Access -----------------------------------------
 
     def get_offline_data(self):
-        """Return (time_axis, processed_data) for the whole recorded session.
+        """Returns the complete session's time axis and processed data arrays.
 
-        `processed_data` has shape (NUM_CHANNELS, num_samples); the offline
-        view picks whichever channel/mode it currently wants to display, the
-        same way the live view does.
+        Returns
+        -------
+        time_axis : ndarray
+            Time vector corresponding to recorded samples.
+        processed_data : ndarray
+            Processed signals with shape (NUM_CHANNELS, num_samples).
+
+        Notes
+        -----
+        The offline view selects specific channels or display modes from
+        `processed_data` as needed, matching live view behavior.
         """
         raw = self.recording_buffer.get()
         time_axis = self.recording_buffer.time_axis(SAMPLE_RATE_HZ)
         processed = apply_mode(raw, self.current_mode) if raw.size else raw
         return time_axis, processed
 
-    # --- Internal: polling the (non-blocking) TCP model ---------------------
+    # --- Internal: TCP Polling Loop ---------------------------------------
 
     def _poll_tcp(self) -> None:
-        """Called every POLL_INTERVAL_MS ms by the QTimer.
+        """Polls the non-blocking TCP socket on each QTimer interval.
 
-        Asks the model to drain the socket, then pulls off and buffers any
-        newly reconstructed packets -- *before* checking connection status,
-        so a batch of packets received in the same tick as a disconnect is
-        still buffered rather than silently dropped. If the server closed
-        the connection since the last tick, `model.is_connected` will now
-        be False.
+        Drains pending bytes and buffers all newly reconstructed packets prior to
+        checking connection status. Processing buffered data first ensures packets
+        received immediately before a connection teardown are preserved. Updates
+        connection state afterwards if the server closed the socket.
         """
         if self._model is None:
             return
@@ -152,7 +155,7 @@ class MainViewModel(QObject):
         self._refresh_live_view()
 
     def _handle_connection_lost(self) -> None:
-        """The server closed the connection (not a user-requested disconnect)."""
+        # Server terminated the connection unexpectedly.
         self._timer.stop()
         self._model = None
         was_connected = self.is_connected
@@ -163,7 +166,7 @@ class MainViewModel(QObject):
         self.offline_data_available.emit(self.recording_buffer.has_data())
 
     def _refresh_live_view(self) -> None:
-        """Recompute the processed data for the current display choice and emit it."""
+        """Recomputes processed data for the active display mode and emits update signals."""
         raw = self.rolling_buffer.get()
         if raw.size == 0:
             return
