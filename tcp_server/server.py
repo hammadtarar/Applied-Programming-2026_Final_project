@@ -1,13 +1,15 @@
-"""TCP server provided for Exercise 5 / the final project.
+"""TCP mock server for streaming EMG dataset packets.
 
-Streams the recorded EMG data in recording.pkl over TCP, one (32, 18)
-float64 packet at a time, at the rate matching the recording's sampling
-frequency -- exactly the data contract the client (../models/tcp_client.py)
-expects. Run this locally to test the client end-to-end:
+Streams pre-recorded EMG data (`recording.pkl`) over a TCP socket as binary packets
+of shape (32, 18) float64 at the original sampling frequency. Matches the data contract
+expected by `models/tcp_client.py`.
 
-    python tcp_server/server.py
+Usage
+-----
+Run locally to test end-to-end streaming:
+    $ python tcp_server/server.py
 
-Then connect the app to localhost:12345 (the defaults already match).
+Connect the client application to `localhost:12345` (default configuration).
 """
 
 import socket
@@ -22,8 +24,7 @@ class EMGTCPServer:
     def __init__(self, host='localhost', port=12345, pkl_file=None):
         self.host = host
         self.port = port
-        # Default: recording.pkl sitting right next to this script, so the
-        # server works on any machine without editing a hardcoded path.
+        # Default to `recording.pkl` in the current directory so the server works portably without hardcoded paths.
         self.pkl_file = pkl_file or str(Path(__file__).resolve().parent / "recording.pkl")
         self.server_socket = None
         self.clients = []
@@ -35,7 +36,7 @@ class EMGTCPServer:
         self.load_data()
 
     def load_data(self):
-        """Load the EMG data from the PKL file"""
+        """Loads pre-recorded EMG signal data from a pickle file."""
         try:
             with open(self.pkl_file, 'rb') as f:
                 self.data = pickle.load(f)
@@ -48,7 +49,7 @@ class EMGTCPServer:
             raise
 
     def print_data(self, data, window_index):
-        """Print the current chunk of data"""
+        """Prints the current data chunk to stdout."""
         print(f"\nSending window {window_index}:")
         print(f"Shape: {data.shape}")
         print("Data values:")
@@ -57,7 +58,7 @@ class EMGTCPServer:
         print("-" * 50)
 
     def start(self):
-        """Start the TCP server"""
+        """Starts the TCP server to listen for client connections and stream data."""
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.host, self.port))
@@ -65,19 +66,19 @@ class EMGTCPServer:
         self.running = True
         print(f"Server started on {self.host}:{self.port}")
 
-        # Start accepting connections in a separate thread
+        # Starts accepting client connections in a background thread.
         accept_thread = threading.Thread(target=self.accept_connections)
         accept_thread.daemon = True
         accept_thread.start()
 
     def accept_connections(self):
-        """Accept incoming connections"""
+        """Accepts incoming client connection requests."""
         while self.running:
             try:
                 client_socket, address = self.server_socket.accept()
                 print(f"New connection from {address}")
                 self.clients.append(client_socket)
-                # Start a new thread to handle this client
+                # Spawns a dedicated thread to handle communication for this client.
                 client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
                 client_thread.daemon = True
                 client_thread.start()

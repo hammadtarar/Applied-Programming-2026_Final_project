@@ -9,12 +9,12 @@ from models.config import ALL_CHANNELS_CLIP_STD, ALL_CHANNELS_LANE_HEIGHT, NUM_C
 
 
 def _distinct_colors(n: int):
-    """n evenly-spaced, readable colors (used for the 32 stacked channel lines)."""
+    """Generates n visually distinct, evenly spaced colors for channel plotting."""
     return [colorsys.hsv_to_rgb(i / n, 0.65, 0.85) for i in range(n)]
 
 
 class LivePlotWidget(QWidget):
-    """Qt widget wrapping a VisPy SceneCanvas with proper x/y axes."""
+    """Qt widget wrapping a VisPy SceneCanvas with integrated X/Y axes."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -64,7 +64,7 @@ class LivePlotWidget(QWidget):
         self._mode = "all"
 
     def update_single_channel(self, time_axis: np.ndarray, data: np.ndarray) -> None:
-        """Draw one channel's signal. `data` shape: (num_samples,)."""
+        """Plots a single channel's signal data array with shape `(num_samples,)`."""
         if time_axis.size < 2:
             return
         self._ensure_single_mode()
@@ -83,7 +83,7 @@ class LivePlotWidget(QWidget):
         self._ensure_all_mode()
         num_channels = data.shape[0]
 
-        # Lazily (re)create one Line visual per channel.
+        # Lazily allocate or recreate a Line visual for each active channel.
         if len(self._channel_lines) != num_channels:
             for line in self._channel_lines:
                 line.parent = None
@@ -92,13 +92,9 @@ class LivePlotWidget(QWidget):
                 for ch in range(num_channels)
             ]
 
-        # Normalize each channel to zero mean, unit std, then clip to a fixed
-        # range before stacking. This guarantees channels can never overlap
-        # into a neighbor's lane, *and* keeps every channel equally readable
-        # regardless of its raw amplitude -- real recordings often have one
-        # channel that's far noisier than the rest (yours has one ~20x
-        # louder), and comparing raw amplitudes let that channel swamp its
-        # neighbors. On a normalized scale it no longer can.
+        # Standardize each channel (zero mean, unit variance) and clip values before vertical offset.
+        # Prevents high-amplitude noise on individual channels from swamping neighboring traces,
+        # ensuring consistent visual scale across all lines.
         centered = data - data.mean(axis=1, keepdims=True)
         channel_std = np.std(centered, axis=1, keepdims=True)
         channel_std[channel_std == 0] = 1.0  # avoid divide-by-zero for flat/dead channels

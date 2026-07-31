@@ -20,9 +20,14 @@ class OfflinePlotWidget(QWidget):
         layout.addWidget(self._canvas)
 
     def plot(self, time_axis: np.ndarray, data: np.ndarray, channel: int, mode_label: str) -> None:
-        """Redraw with one channel's data from the full recorded array.
+        """Redraws the plot using data from a single selected channel.
 
-        `data` shape: (num_channels, num_samples); `channel` selects the row.
+        Parameters
+        ----------
+        data : ndarray
+            Full recorded dataset with shape (num_channels, num_samples).
+        channel : int
+           Index of the channel row to extract and plot.
         """
         self._ax.clear()
         self._ax.set_xlabel("Time (s)")

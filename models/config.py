@@ -1,25 +1,24 @@
-"""Shared constants describing the TCP data format and signal-processing parameters.
+"""Centralized configuration for TCP data formats and signal processing parameters.
 
-Keeping these in one place means the whole application (TCP parsing, buffering,
-signal processing, plotting) agrees on the same numbers, and it gives us one
-spot to document the choices for the README.
+Consolidating these constants ensures consistent data parsing, buffering,
+and visualization across all modules, while providing a single source of truth
+for project setup and documentation.
 """
 
-# --- TCP / packet format (fixed by the Exercise 5 server) -------------------
+# --- TCP Packet Format (Fixed protocol spec) ------------------------------
 NUM_CHANNELS = 32
 SAMPLES_PER_PACKET = 18          # samples per channel, per packet
 DTYPE = "float64"                 # 8 bytes per value
 BYTES_PER_VALUE = 8
 PACKET_SIZE_BYTES = NUM_CHANNELS * SAMPLES_PER_PACKET * BYTES_PER_VALUE  # 4608
 
-# --- Sampling rate -----------------------------------------------------------
-# Matches the recording device (Muovi) used to capture recording.pkl -- see
-# its device_information['sampling_frequency'] -- and the Exercise 5 server
-# that streams it (tcp_server/server.py).
+# --- Sampling Rate -----------------------------------------------------------
+# Matches the recording device (Muovi) used in recording.pkl
+# (device_information['sampling_frequency']) and streamed by tcp_server/server.py.
 SAMPLE_RATE_HZ = 2000.0
 
-# --- TCP connection defaults ---------------------------------------------------
-# Match the Exercise 5 / course-provided server in tcp_server/server.py.
+# --- TCP Connection Defaults ---------------------------------------------------
+# Configured to connect to the local streaming server in tcp_server/server.py.
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 12345
 
@@ -36,13 +35,12 @@ RMS_WINDOW_SAMPLES = max(1, int(RMS_WINDOW_SECONDS * SAMPLE_RATE_HZ))
 FILTER_ORDER = 4
 FILTER_CUTOFF_HZ = 40.0
 
-# --- Plot-all-channels vertical spacing ----------------------------------------
-# Each channel is normalized to zero mean, unit std, then clipped to
-# +/- ALL_CHANNELS_CLIP_STD before being stacked ALL_CHANNELS_LANE_HEIGHT
-# apart. Because clipping happens *after* normalizing, no channel -- however
-# loud or quiet its raw amplitude -- can ever cross into a neighbor's lane:
-# the minimum gap between any two adjacent channels is always
-# (ALL_CHANNELS_LANE_HEIGHT - 2 * ALL_CHANNELS_CLIP_STD), which is positive
-# by construction. See LivePlotWidget.update_all_channels().
+# --- Vertical Spacing for All-Channel Plot -------------------------------------
+# Channels are normalized (zero mean, unit std) and clipped to +/- ALL_CHANNELS_CLIP_STD
+# before being offset vertically by ALL_CHANNELS_LANE_HEIGHT.
+# Clipping post-normalization guarantees channels won't overlap regardless of raw amplitude:
+# the minimum gap between adjacent lanes is always
+# (ALL_CHANNELS_LANE_HEIGHT - 2 * ALL_CHANNELS_CLIP_STD) > 0.
+# Used in LivePlotWidget.update_all_channels().
 ALL_CHANNELS_CLIP_STD = 3.5
 ALL_CHANNELS_LANE_HEIGHT = 8.0

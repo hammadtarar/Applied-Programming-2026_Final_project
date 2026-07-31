@@ -16,30 +16,28 @@ class SignalMode(Enum):
 
 
 def compute_rms(data: np.ndarray, window_samples: int = RMS_WINDOW_SAMPLES) -> np.ndarray:
-    """Sliding-window RMS envelope, computed independently per channel (row).
+    """Calculates a sliding-window RMS envelope independently per channel.
 
     Parameters
     ----------
     data : np.ndarray, shape (num_channels, num_samples)
-        Raw signal.
+        Multi-channel raw signal input.
     window_samples : int
-        Width of the sliding window, in samples. See RMS_WINDOW_SECONDS in
-        models/config.py for how this is chosen (0.05 s -> 50 samples at 1 kHz).
+        Window width in samples (e.g., 50 samples for 0.05 s at 1 kHz;
+        see `RMS_WINDOW_SECONDS` in models/config.py).
 
     Returns
     -------
-    np.ndarray, same shape as `data`
-        RMS envelope (a centered sliding-window mean of the squared signal,
-        then square-rooted). Edge samples use `mode="nearest"` padding so the
-        output length always matches the input length -- nothing downstream
-        (plots, buffers) needs to special-case a shorter array.
+    np.ndarray, shape matching `data`
+         RMS envelope computed via a centered sliding mean of squared values.
+         Uses nearest-edge padding (`mode="nearest"`) to preserve array length,
+         avoiding dimension mismatches in downstream plots or buffers.
 
-    Implementation note
-    --------------------
-    Uses `scipy.ndimage.uniform_filter1d`, a vectorized (C-level) sliding
-    window, rather than a per-sample Python loop -- this matters because RMS
-    is recomputed over the whole rolling window on every incoming packet for
-    the live view, so it needs to stay fast enough to not lag the GUI.
+    Notes
+    -----
+    Utilizes `scipy.ndimage.uniform_filter1d` for efficient C-level sliding
+    window filtering. Avoiding Python-level loops keeps RMS computation
+    fast enough for real-time GUI updates.
     """
     if data.size == 0:
         return data.copy()
@@ -57,20 +55,21 @@ def compute_filtered(
     cutoff_hz: float = FILTER_CUTOFF_HZ,
     order: int = FILTER_ORDER,
 ) -> np.ndarray:
-    """Zero-phase low-pass Butterworth filter, applied independently per channel.
+    """Applies a zero-phase low-pass Butterworth filter across all channels.
 
     Parameters
     ----------
     data : np.ndarray, shape (num_channels, num_samples)
-    sample_rate_hz, cutoff_hz, order : filter design parameters
-        Defaults come from models/config.py (4th-order Butterworth, 40 Hz cutoff).
+        Multi-channel input signal data.
+    sample_rate_hz, cutoff_hz, order : float/int
+        Filter specification parameters (defaults set in models/config.py:
+        4th-order Butterworth with a 40 Hz cutoff).
 
     Returns
     -------
-    np.ndarray, same shape as `data`
-        Filtered signal. Falls back to the unfiltered signal if there are too
-        few samples for `filtfilt`'s padding requirement (this happens only
-        for the first couple of live-view updates right after connecting).
+    np.ndarray, shape matching `data`
+       Filtered signal array. Falls back to raw data if the sample count is
+       too small for `scipy.signal.filtfilt` padding (e.g., initial live packets).
     """
     if data.size == 0:
         return data.copy()
@@ -88,7 +87,7 @@ def compute_filtered(
 
 
 def apply_mode(data: np.ndarray, mode: SignalMode) -> np.ndarray:
-    """Dispatch helper used by both the live and offline views."""
+    """Helper module for routing update events across both live and offline views."""
     if mode is SignalMode.ORIGINAL:
         return data
     if mode is SignalMode.RMS:
