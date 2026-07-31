@@ -1,16 +1,26 @@
 # TCP Signal Visualization Application
 
-Final project for [course/module name] — live and offline visualization of a
-32-channel EMG signal stream received over TCP.
+Final project for Applied Programming (2026) — live and offline visualization
+of a 32-channel EMG signal stream received over TCP.
 
 ## Group
 
-- **Group name:** _TODO: fill in_
-- **Group number:** _TODO: fill in_
-- **Members and responsibilities:**
-  - _TODO: Name 1 — e.g. TCP client / backend (`models/`)_
-  - _TODO: Name 2 — e.g. Live/offline visualization (`views/`)_
-  - _TODO: Name 3 — e.g. ViewModel integration, error handling, documentation_
+**Group 19**
+
+- Syed Askari Abbas Rizvi (ik51ymek)
+- Zohran Ahmed (bu11lixo)
+- Hammad Ashraf Tarar (cy73xuno)
+
+Work was split roughly evenly across the three areas of the project:
+
+- **Syed Askari Abbas Rizvi** — TCP client and backend (`models/`): socket
+  handling, packet reconstruction, buffering, and signal processing
+  (RMS and filtering).
+- **Zohran Ahmed** — Live and offline visualization (`views/`): the VisPy
+  live plot (single-channel and all-channels), the Matplotlib offline plot,
+  and the main window UI.
+- **Hammad Ashraf Tarar** — ViewModel integration (`viewmodels/`), error
+  handling, testing against the TCP server, and this documentation.
 
 ## Overview
 
